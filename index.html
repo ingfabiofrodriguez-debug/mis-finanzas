@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Finanzas Express CFO</title>
+
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Finanzas">
+  
+  <!-- Manifest Dynamic Injection -->
+  <link rel="manifest" id="manifest-placeholder">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-expense: #ef4444;
+      --accent-invest: #10b981;
+      --accent-primary: #3b82f6;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      padding-bottom: 100px;
+      touch-action: manipulation;
+    }
+
+    header {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .container {
+      padding: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    .kpi-card.full {
+      grid-column: span 2;
+    }
+
+    .kpi-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .kpi-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .kpi-value.expense { color: var(--accent-expense); }
+    .kpi-value.invest { color: var(--accent-invest); }
+    .kpi-value.ratio { color: var(--accent-primary); }
+
+    /* Controls Bar */
+    .controls-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    select, input[type="date"] {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 10px;
+      border-radius: 10px;
+      flex: 1;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* Charts Container */
+    .chart-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-header {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Transactions List */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .tx-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tx-info h4 {
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+
+    .tx-info p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .tx-amount {
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-align: right;
+    }
+
+    .tx-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    /* Floating Action Button (FAB) */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      color: white;
+      border: none;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+      z-index: 99;
+    }
+
+    /* Bottom Sheet Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: flex-end;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .bottom-sheet {
+      background: var(--card-bg);
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 24px 20px 32px 20px;
+      border-top: 1px solid var(--card-border);
+      animation: slideUp 0.25s cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg-main);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .type-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: var(--bg-main);
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .type-btn {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .type-btn.active.expense { background: var(--accent-expense); color: white; }
+    .type-btn.active.invest { background: var(--accent-invest); color: white; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent-primary);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    .backup-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 16px;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Finanzas CFO</h1>
+    <span id="sync-status" style="font-size:0.75rem; color: var(--accent-invest);">● IndexedDB Activo</span>
+  </header>
+
+  <div class="container">
+    
+    <!-- Filtros por Rango -->
+    <div class="controls-bar">
+      <select id="time-filter" onchange="renderDashboard()">
+        <option value="current_month">Mes Actual</option>
+        <option value="last_month">Mes Anterior</option>
+        <option value="year">Año Actual</option>
+        <option value="all">Todo el Histórico</option>
+      </select>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-title">Gastos del Periodo</div>
+        <div class="kpi-value expense" id="kpi-expense">$0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Inversiones</div>
+        <div class="kpi-value invest" id="kpi-invest">$0</div>
+      </div>
+      <div class="kpi-card full">
+        <div class="kpi-title">Ratio de Inversión (Cap. Invertido / Total)</div>
+        <div class="kpi-value ratio" id="kpi-ratio">0%</div>
+      </div>
+    </div>
+
+    <!-- Gráfico Distribución -->
+    <div class="chart-container">
+      <div class="chart-header">Distribución por Categorías</div>
+      <canvas id="donutChart"></canvas>
+    </div>
+
+    <!-- Lista de Registros -->
+    <div class="list-header">
+      <h3 style="font-size: 1rem;">Últimos Registros</h3>
+    </div>
+    <div id="tx-list"></div>
+
+    <!-- Copias de Seguridad -->
+    <div class="backup-actions">
+      <button class="btn-secondary" onclick="exportBackup()">Exportar Backup (JSON)</button>
+      <button class="btn-secondary" onclick="document.getElementById('import-file').click()">Importar Backup</button>
+      <input type="file" id="import-file" style="display:none" onchange="importBackup(event)">
+    </div>
+  </div>
+
+  <!-- Botón Flotante -->
+  <button class="fab" onclick="openModal()">+</button>
+
+  <!-- Modal Bottom Sheet -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+      <h3 style="margin-bottom: 16px;">Nuevo Registro Express</h3>
+      <form id="tx-form" onsubmit="handleFormSubmit(event)">
+        
+        <div class="form-group">
+          <div class="type-toggle">
+            <button type="button" class="type-btn active expense" id="btn-expense" onclick="setType('gasto')">Gasto</button>
+            <button type="button" class="type-btn invest" id="btn-invest" onclick="setType('inversion')">Inversión</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Monto</label>
+          <input type="number" step="any" inputmode="decimal" class="form-control" id="form-amount" placeholder="0.00" required>
+        </div>
+
+        <div class="form-group">
+          <label>Detalle / Concepto</label>
+          <input type="text" class="form-control" id="form-concept" placeholder="Ej. Almuerzo, ETF CSPX" required>
+        </div>
+
+        <div class="form-group">
+          <label>Categoría</label>
+          <select class="form-control" id="form-category"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" class="form-control" id="form-date" required>
+        </div>
+
+        <button type="submit" class="btn-submit">Guardar Registro</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // --- Configuración e Inicialización de IndexedDB ---
+    const DB_NAME = 'FinanzasDB';
+    const DB_VERSION = 1;
+    let db;
+    let currentType = 'gasto';
+    let donutChartInstance = null;
+
+    const categories = {
+      gasto: ['Salud', 'Educación', 'Comida fuera', 'Mercado', 'Deudas', 'Transporte', 'Imprevistos'],
+      inversion: ['Acciones / ETFs', 'Cripto', 'Fondo Renta Fija', 'Bienes Raíces', 'Otros']
+    };
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          db = e.target.result;
+          if (!db.objectStoreNames.contains('transactions')) {
+            const store = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
+            store.createIndex('date', 'date', { unique: false });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    // --- Carga Inicial ---
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initDB();
+      document.getElementById('form-date').valueToDate = new Date();
+      document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
+      setupManifest();
+      updateCategoriesSelect();
+      renderDashboard();
+    });
+
+    // Manifest Dinámico para PWA
+    function setupManifest() {
+      const myManifest = {
+        "name": "Finanzas CFO App",
+        "short_name": "Finanzas",
+        "start_url": ".",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a"
+      };
+      const stringManifest = JSON.stringify(myManifest);
+      const blob = new Blob([stringManifest], {type: 'application/json'});
+      document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blob));
+    }
+
+    // --- Funciones UI Modal & Formulario ---
+    function openModal() {
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function closeModal(e) {
+      document.getElementById('modal-overlay').classList.remove('active');
+    }
+
+    function setType(type) {
+      currentType = type;
+      document.getElementById('btn-expense').className = `type-btn ${type === 'gasto' ? 'active expense' : ''}`;
+      document.getElementById('btn-invest').className = `type-btn ${type === 'inversion' ? 'active invest' : ''}`;
+      updateCategoriesSelect();
+    }
+
+    function updateCategoriesSelect() {
+      const select = document.getElementById('form-category');
+      select.innerHTML = '';
+      categories[currentType].forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        select.appendChild(opt);
+      });
+    }
+
+    // --- Operaciones CRUD (IndexedDB) ---
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const tx = {
+        type: currentType,
+        amount: parseFloat(document.getElementById('form-amount').value),
+        concept: document.getElementById('form-concept').value,
+        category: document.getElementById('form-category').value,
+        date: document.getElementById('form-date').value,
+        timestamp: new Date().getTime()
+      };
+
+      const transaction = db.transaction(['transactions'], 'readwrite');
+      const store = transaction.objectStore('transactions');
+      store.add(tx);
+
+      transaction.oncomplete = () => {
+        document.getElementById('tx-form').reset();
+        document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
+        closeModal();
+        renderDashboard();
+      };
+    }
+
+    function getAllTransactions() {
+      return new Promise((resolve) => {
+        const txs = [];
+        const transaction = db.transaction(['transactions'], 'readonly');
+        const store = transaction.objectStore('transactions');
+        store.openCursor().onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            txs.push({ id: cursor.key, ...cursor.value });
+            cursor.continue();
+          } else {
+            resolve(txs);
+          }
+        };
+      });
+    }
+
+    async function deleteTx(id) {
+      if (confirm('¿Eliminar este registro?')) {
+        const transaction = db.transaction(['transactions'], 'readwrite');
+        transaction.objectStore('transactions').delete(id);
+        transaction.oncomplete = () => renderDashboard();
+      }
+    }
+
+    // --- Dashboard, Métricas & Chart.js ---
+    async function renderDashboard() {
+      const allTx = await getAllTransactions();
+      const filter = document.getElementById('time-filter').value;
+      const filtered = filterTxByPeriod(allTx, filter);
+
+      let totalExpense = 0;
+      let totalInvest = 0;
+      const catTotals = {};
+
+      filtered.forEach(tx => {
+        if (tx.type === 'gasto') {
+          totalExpense += tx.amount;
+        } else {
+          totalInvest += tx.amount;
+        }
+
+        catTotals[tx.category] = (catTotals[tx.category] || 0) + tx.amount;
+      });
+
+      // Actualizar KPIs
+      document.getElementById('kpi-expense').textContent = `$${totalExpense.toLocaleString()}`;
+      document.getElementById('kpi-invest').textContent = `$${totalInvest.toLocaleString()}`;
+      
+      const totalGlobal = totalExpense + totalInvest;
+      const ratio = totalGlobal > 0 ? ((totalInvest / totalGlobal) * 100).toFixed(1) : 0;
+      document.getElementById('kpi-ratio').textContent = `${ratio}%`;
+
+      // Render List
+      renderTxList(filtered.sort((a,b) => new Date(b.date) - new Date(a.date)));
+
+      // Render Chart
+      renderChart(catTotals);
+    }
+
+    function filterTxByPeriod(txs, period) {
+      const now = new Date();
+      return txs.filter(tx => {
+        const d = new Date(tx.date);
+        if (period === 'current_month') {
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        } else if (period === 'last_month') {
+          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+        } else if (period === 'year') {
+          return d.getFullYear() === now.getFullYear();
+        }
+        return true;
+      });
+    }
+
+    function renderTxList(txs) {
+      const container = document.getElementById('tx-list');
+      container.innerHTML = '';
+
+      if (txs.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color: var(--text-muted); font-size:0.85rem; padding: 20px;">Sin registros en este periodo.</p>';
+        return;
+      }
+
+      txs.forEach(tx => {
+        const item = document.createElement('div');
+        item.className = 'tx-item';
+        const isExpense = tx.type === 'gasto';
+        item.innerHTML = `
+          <div class="tx-info">
+            <h4>${tx.concept}</h4>
+            <p>${tx.category} • ${tx.date}</p>
+          </div>
+          <div class="tx-actions">
+            <div class="tx-amount ${isExpense ? 'expense' : 'invest'}">
+              ${isExpense ? '-' : '+'}$${tx.amount.toLocaleString()}
+            </div>
+            <button class="btn-delete" onclick="deleteTx(${tx.id})">✕</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function renderChart(catTotals) {
+      const ctx = document.getElementById('donutChart').getContext('2d');
+      const labels = Object.keys(catTotals);
+      const data = Object.values(catTotals);
+
+      if (donutChartInstance) {
+        donutChartInstance.destroy();
+      }
+
+      donutChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: [
+              '#ef4444', '#10b981', '#3b82f6', '#f59e0b', 
+              '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // --- Exportar & Importar Backups (JSON) ---
+    async function exportBackup() {
+      const allTx = await getAllTransactions();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allTx, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `finanzas_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importBackup(e) {
+      const fileReader = new FileReader();
+      fileReader.onload = async function(event) {
+        try {
+          const txs = JSON.parse(event.target.result);
+          if (Array.isArray(txs)) {
+            const transaction = db.transaction(['transactions'], 'readwrite');
+            const store = transaction.objectStore('transactions');
+            txs.forEach(tx => {
+              delete tx.id; // Permite re-indexar en DB actual
+              store.add(tx);
+            });
+            transaction.oncomplete = () => {
+              alert('Backup importado con éxito');
+              renderDashboard();
+            };
+          }
+        } catch (err) {
+          alert('Error al leer el archivo de backup');
+        }
+      };
+      fileReader.readAsText(e.target.files[0]);
+    }
+  </script>
+</body>
+</html>
